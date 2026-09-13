@@ -1,0 +1,54 @@
+name: Build TTS Pool Tracker APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Inject Google Drive credentials
+        env:
+          GOOGLE_CREDENTIALS_B64: ${{ secrets.GOOGLE_CREDENTIALS_B64 }}
+        run: |
+          test -n "$GOOGLE_CREDENTIALS_B64" || (echo "::error::Missing GOOGLE_CREDENTIALS_B64 repository secret"; exit 1)
+          mkdir -p app/src/main/assets
+          echo "$GOOGLE_CREDENTIALS_B64" | base64 --decode > app/src/main/assets/SOC-Google-API-credentials.json
+          python -m json.tool app/src/main/assets/SOC-Google-API-credentials.json >/dev/null
+
+      - name: Build debug APK
+        run: gradle assembleDebug --no-daemon
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/TTS-Pool-Tracker.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TTS-Pool-Tracker
+          path: app/build/outputs/apk/debug/TTS-Pool-Tracker.apk
