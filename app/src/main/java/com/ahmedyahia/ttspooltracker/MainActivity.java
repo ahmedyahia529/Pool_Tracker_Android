@@ -111,7 +111,8 @@ public class MainActivity extends Activity {
             String injection = "<script>window.ANDROID_REPORTS=" + reportsJson + ";window.ANDROID_SELECTED_DATE=" + safeDate + ";window.ANDROID_REPORT_DATA=JSON.parse(" + safeReport + ");</script>";
             int headEnd = html.lastIndexOf("</head>");
             if (headEnd >= 0) html = html.substring(0, headEnd) + injection + html.substring(headEnd);
-            html = html.replace("</body>", "<script src=\"mobile_patch.js\"></script></body>");
+            String mobilePatch = readAsset("mobile_patch.js");
+            html = html.replace("</body>", "<script>" + mobilePatch + "</script></body>");
             String baseUrl = "https://appassets.androidplatform.net/assets/dashboard.html";
             webView.loadDataWithBaseURL(baseUrl, html, "text/html", "UTF-8", baseUrl);
         } catch (Exception e) { Toast.makeText(this, "Unable to load dashboard: " + e.getMessage(), Toast.LENGTH_LONG).show(); }
