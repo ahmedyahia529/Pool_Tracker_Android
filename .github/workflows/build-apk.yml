@@ -32,7 +32,7 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Inject Google Drive credentials
+      - name: Inject Google credentials and validate
         env:
           GOOGLE_CREDENTIALS_B64: ${{ secrets.GOOGLE_CREDENTIALS_B64 }}
         run: |
@@ -40,6 +40,23 @@ jobs:
           mkdir -p app/src/main/assets
           echo "$GOOGLE_CREDENTIALS_B64" | base64 --decode > app/src/main/assets/SOC-Google-API-credentials.json
           python -m json.tool app/src/main/assets/SOC-Google-API-credentials.json >/dev/null
+          python - <<'PY'
+          import json
+          p='app/src/main/assets/SOC-Google-API-credentials.json'
+          with open(p, encoding='utf-8') as f: c=json.load(f)
+          required=['type','project_id','private_key','client_email','token_uri']
+          missing=[k for k in required if not c.get(k)]
+          if missing:
+              raise SystemExit('Missing credential fields: ' + ', '.join(missing))
+          if c.get('type') != 'service_account':
+              raise SystemExit('Credential type is not service_account')
+          print('Credential JSON: VALID')
+          print('Credential type: service_account')
+          print('Project ID: ' + c['project_id'])
+          print('Client email: ' + c['client_email'])
+          print('Private key: PRESENT (value hidden)')
+          print('Token URI: ' + c['token_uri'])
+          PY
 
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
