@@ -54,13 +54,16 @@ public class MainActivity extends Activity {
         s.setDisplayZoomControls(false);
         s.setAllowFileAccess(true);
         s.setAllowContentAccess(true);
+        s.setJavaScriptCanOpenWindowsAutomatically(false);
 
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                view.evaluateJavascript("if(window.onNativeReady) onNativeReady();", null);
+                view.postDelayed(() -> view.evaluateJavascript(
+                        "(function(){ if(typeof onNativeReady==='function'){ onNativeReady(); return 'READY'; } return 'JS_FUNCTION_MISSING'; })()",
+                        null), 150);
                 deliverPendingReport();
             }
         });
@@ -69,7 +72,21 @@ public class MainActivity extends Activity {
     }
 
     private void loadHome() {
-        webView.loadUrl("file:///android_asset/home.html");
+        loadAssetPage("home.html");
+    }
+
+    private void loadDashboard() {
+        loadAssetPage("dashboard.html");
+    }
+
+    private void loadAssetPage(String assetName) {
+        try {
+            String html = readAsset(assetName);
+            String baseUrl = "https://appassets.androidplatform.net/assets/" + assetName;
+            webView.loadDataWithBaseURL(baseUrl, html, "text/html", "UTF-8", baseUrl);
+        } catch (Exception e) {
+            Toast.makeText(this, "Unable to load " + assetName + ": " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override
@@ -125,7 +142,7 @@ public class MainActivity extends Activity {
                     final String quoted = JSONObject.quote(report);
                     runOnUiThread(() -> {
                         pendingReportJson = quoted;
-                        webView.loadUrl("file:///android_asset/dashboard.html");
+                        loadDashboard();
                     });
                 } catch (Exception e) {
                     final String msg = e.getMessage() == null ? "Unable to load the latest report." : e.getMessage();
@@ -143,7 +160,7 @@ public class MainActivity extends Activity {
                     final String quoted = JSONObject.quote(report);
                     runOnUiThread(() -> {
                         pendingReportJson = quoted;
-                        webView.loadUrl("file:///android_asset/dashboard.html");
+                        loadDashboard();
                     });
                 } catch (Exception e) {
                     final String msg = e.getMessage() == null ? "Unable to load the selected report." : e.getMessage();
