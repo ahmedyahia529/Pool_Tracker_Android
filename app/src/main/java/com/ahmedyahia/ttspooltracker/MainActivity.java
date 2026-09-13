@@ -101,9 +101,27 @@ public class MainActivity extends Activity {
             String injection="<script>window.ANDROID_REPORTS="+reportsJson+";window.ANDROID_SELECTED_DATE="+safeDate+";window.ANDROID_REPORT_DATA=JSON.parse("+safeReport+");</script>";
             int headEnd=html.lastIndexOf("</head>");
             if(headEnd>=0)html=html.substring(0,headEnd)+injection+html.substring(headEnd);
+            html=html.replace("</body>", getMobileReportPatch()+"</body>");
             String baseUrl="https://appassets.androidplatform.net/assets/dashboard.html";
             webView.loadDataWithBaseURL(baseUrl,html,"text/html","UTF-8",baseUrl);
         }catch(Exception e){Toast.makeText(this,"Unable to load dashboard: "+e.getMessage(),Toast.LENGTH_LONG).show();}
+    }
+
+    private String getMobileReportPatch(){
+        return "<script>(function(){"+
+        "function escM(s){return String(s==null?'':s).replace(/[&<>\"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','\\\"':'&quot;',\"'\":'&#39;'}[m]})}"+
+        "function nM(v){return Number(v||0).toLocaleString()}"+
+        "function panelM(text){var ps=document.querySelectorAll('.panel');for(var i=0;i<ps.length;i++){var h=ps[i].querySelector('h2');if(h&&h.textContent.indexOf(text)>=0)return ps[i]}return null}"+
+        "function patchReport(d){try{var t=d.session_totals||{},c=d.current||{};"+
+        "var p=panelM('Cabinet Intelligence');if(p){var list=t.cabinet_intelligence||[];p.innerHTML='<div class=\"panel-title-row\"><h2>🧠 Cabinet Intelligence</h2><span class=\"section-badge\">TOP 10</span></div><div class=\"sub\" style=\"margin-bottom:10px\">Click a cabinet to inspect Tickets, Escalations, Customers and categories.</div><div class=\"repeat-list\">'+(list.length?list.slice(0,10).map(function(x,i){return '<div class=\"repeat-item\"><div class=\"panel-title-row\"><b>#'+(i+1)+' '+escM(x.cabinet||'-')+'</b><b>'+nM(x.escalations)+' events</b></div><div class=\"sub\">'+nM(x.tickets)+' tickets · '+nM(x.customers)+' customers · '+nM(x.repeat_escalations)+' repeat escalations · '+nM(x.high_group_events)+' high GroupCount events</div><div class=\"sub\">Risk: '+escM(x.risk_level||'-')+' · Score '+nM(x.risk_score)+' · '+escM((x.category_names||[]).join(' · '))+'</div></div>'}).join(''):'<div class=\"empty\">No cabinet intelligence available.</div>')+'</div>'}'+
+        "var p2=panelM('Top Repeated Customers');if(p2){var cust=t.top_repeated_customers||[];p2.innerHTML='<h2>👤 Top Repeated Customers</h2><div class=\"sub\" style=\"margin-bottom:10px\">Accounts with more than one unique Ticket ID.</div><div class=\"repeat-list\">'+(cust.length?cust.slice(0,10).map(function(x){return '<div class=\"repeat-item\"><div class=\"panel-title-row\"><b>'+escM(x.account||'-')+'</b><b>'+nM(x.escalations)+' events</b></div><div class=\"sub\">'+nM(x.tickets)+' unique ticket(s)</div></div>'}).join(''):'<div class=\"empty\">No repeated customers detected yet.</div>')+'</div>'}'+
+        "var p3=panelM('Peak Escalation Windows');if(p3){var pc=t.peak_category_windows||{},ps=t.peak_service_windows||{},po=t.peak_escalation_window||{};var cats=Object.keys(pc).map(function(k){var x=pc[k]||{};return '<div class=\"category-total\"><div class=\"ct-label\">'+escM(k)+'</div><div class=\"ct-value\">🔥 '+escM(x.hour!=null?String(x.hour).padStart(2,'0')+':00–'+String(x.hour).padStart(2,'0')+':59':'-')+'</div><div class=\"sub\">'+nM(x.total)+' escalation events</div></div>'}).join('');var svc=Object.keys(ps).map(function(k){var x=ps[k]||{};return '<div class=\"category-total\"><div class=\"ct-label\">'+escM(k)+'</div><div class=\"ct-value\">🔥 '+escM(x.hour!=null?String(x.hour).padStart(2,'0')+':00–'+String(x.hour).padStart(2,'0')+':59':'-')+'</div><div class=\"sub\">'+nM(x.total)+' escalation events</div></div>'}).join('');p3.innerHTML='<div class=\"panel-title-row\"><h2>🔥 Peak Escalation Windows</h2><span class=\"section-badge\">DAILY</span></div><div class=\"peak-overall\" style=\"padding:12px 14px;margin-bottom:12px;border:1px solid rgba(255,255,255,.08);border-radius:12px\"><b>🔥 Overall Peak</b> · '+escM(po.hour!=null?String(po.hour).padStart(2,'0')+':00–'+String(po.hour).padStart(2,'0')+':59':'-')+' · <b>'+nM(po.total)+' events</b></div><div class=\"sub\">CATEGORIES</div><div class=\"category-totals\">'+(cats||'<div class=\"empty\">No category peak data.</div>')+'</div><div class=\"sub\" style=\"margin-top:12px\">SERVICE FAMILIES</div><div class=\"category-totals\">'+(svc||'<div class=\"empty\">No service peak data.</div>')+'</div>'}'+
+        "function ticketPanelM(title,rows,high){var p=panelM(title);if(!p)return;var html='<div class=\"panel-title-row\"><h2>'+title+(high?' <span class=\"section-badge\">DAILY</span>':'')+'</h2></div><div class=\"table-scroll\"><table class=\"table\"><thead><tr>'+(high?'<th>Ticket</th><th>Account</th><th>Product</th><th>Category</th><th>Cabinet</th><th>GroupCount</th><th>Transfer Time</th><th>First Run</th><th>Last Run</th>':'<th>Ticket</th><th>Account</th><th>Product</th><th>Category</th><th>Cabinet</th><th>TransferDate</th><th>GroupCount</th>')+'</tr></thead><tbody>'+(rows.length?rows.map(function(x){return high?'<tr><td>'+escM(x.ticket_id)+'</td><td>'+escM(x.account)+'</td><td>'+escM(x.product)+'</td><td>'+escM(x.category)+'</td><td>'+escM(x.cabinet)+'</td><td>'+nM(x.group_count)+'</td><td>'+escM(x.transfer_time)+'</td><td>'+escM(x.first_seen_run)+'</td><td>'+escM(x.last_seen_run)+'</td></tr>':'<tr><td>'+escM(x.ticket_id)+'</td><td>'+escM(x.account)+'</td><td>'+escM(x.product)+'</td><td>'+escM(x.category)+'</td><td>'+escM(x.cabinet)+'</td><td>'+escM(x.transfer_date)+'</td><td>'+nM(x.group_count)+'</td></tr>'}).join(''):'<tr><td colspan=\"9\" class=\"empty\">No matching tickets.</td></tr>')+'</tbody></table></div>';p.innerHTML=html}'+
+        "ticketPanelM('Current Ticket Detail', (c.tickets||[]).slice().sort(function(a,b){return Number(b.group_count||0)-Number(a.group_count||0)}).slice(0,25), false);"+
+        "ticketPanelM('High Group Tickets', (t.high_group_tickets||[]).slice().sort(function(a,b){return Number(b.group_count||0)-Number(a.group_count||0)}), true);"+
+        "}catch(e){console.log('mobile report patch',e)}}"+
+        "var oldRender=window.render;window.render=function(d){oldRender(d);setTimeout(function(){patchReport(d)},0)};setTimeout(function(){if(window.ANDROID_REPORT_DATA)patchReport(window.ANDROID_REPORT_DATA)},0);"+
+        "})();</script>";
     }
 
     private void loadAssetPage(String assetName){try{String html=readAsset(assetName);String baseUrl="https://appassets.androidplatform.net/assets/"+assetName;webView.loadDataWithBaseURL(baseUrl,html,"text/html","UTF-8",baseUrl);}catch(Exception e){Toast.makeText(this,"Unable to load "+assetName+": "+e.getMessage(),Toast.LENGTH_LONG).show();}}
@@ -122,13 +140,12 @@ public class MainActivity extends Activity {
         String token=getAccessToken();
         JSONObject sheet=httpJson("GET","https://sheets.googleapis.com/v4/spreadsheets/"+SHEET_ID+"/values/A:B",token,null);JSONArray rows=sheet.optJSONArray("values");
         if(rows==null)throw new Exception("Authorized Users sheet is unavailable.");
-        String wantedUser=normalizeUsername(username);boolean found=false;
+        String wantedUser=normalizeUsername(username);
         for(int i=0;i<rows.length();i++){
             JSONArray row=rows.optJSONArray(i);if(row==null||row.length()==0)continue;
             String sheetUser=normalizeUsername(row.optString(0,""));
             String sheetPassword=row.length()>1?row.optString(1,""):"";
             if(sheetUser.equals(wantedUser)){
-                found=true;
                 if(!sheetPassword.equals(password))throw new Exception("Username found in Authorized Users, but password does not match.");
                 return;
             }
