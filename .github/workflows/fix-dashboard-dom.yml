@@ -1,0 +1,43 @@
+name: Fix Android Dashboard DOM
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'Fix Android dashboard missing sub element') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch dashboard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/assets/dashboard.html')
+          s = p.read_text(encoding='utf-8')
+          old = '<div class="head"><div><h1>◈ TTS SENTINEL</h1><div class="sub">TTS Pool Operations Intelligence Dashboard</div></div>'
+          new = '<div class="head"><div><h1>◈ TTS SENTINEL</h1><div id="sub" class="sub">TTS Pool Operations Intelligence Dashboard</div></div>'
+          if old not in s:
+              raise SystemExit('Expected dashboard header was not found; refusing to modify the file.')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Commit dashboard fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/assets/dashboard.html
+          git commit -m 'Fix Android dashboard missing sub element'
+          git push
+
+      - name: Remove one-time patch workflow
+        run: |
+          git rm .github/workflows/fix-dashboard-dom.yml
+          git commit -m 'Remove one-time dashboard patch workflow'
+          git push
