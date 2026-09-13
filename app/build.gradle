@@ -1,0 +1,19 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.ahmedyahia.ttspooltracker'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.ahmedyahia.ttspooltracker'
+        minSdk 23
+        targetSdk 35
+        versionCode 9
+        versionName '2.8'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
