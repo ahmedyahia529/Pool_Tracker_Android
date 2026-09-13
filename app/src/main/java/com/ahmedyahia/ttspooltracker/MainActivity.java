@@ -28,6 +28,7 @@ import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -121,9 +122,23 @@ public class MainActivity extends Activity {
         String token=getAccessToken();
         JSONObject sheet=httpJson("GET","https://sheets.googleapis.com/v4/spreadsheets/"+SHEET_ID+"/values/A:B",token,null);JSONArray rows=sheet.optJSONArray("values");
         if(rows==null)throw new Exception("Authorized Users sheet is unavailable.");
-        String wantedUser=username.trim();boolean found=false;
-        for(int i=0;i<rows.length();i++){JSONArray row=rows.optJSONArray(i);if(row==null||row.length()==0)continue;String sheetUser=row.optString(0,"").trim();String sheetPassword=row.length()>1?row.optString(1,""):"";if(sheetUser.equals(wantedUser)){found=true;if(!sheetPassword.equals(password))throw new Exception("Invalid username or password.");break;}}
-        if(!found)throw new Exception("This user is not authorized.");
+        String wantedUser=normalizeUsername(username);boolean found=false;
+        for(int i=0;i<rows.length();i++){
+            JSONArray row=rows.optJSONArray(i);if(row==null||row.length()==0)continue;
+            String sheetUser=normalizeUsername(row.optString(0,""));
+            String sheetPassword=row.length()>1?row.optString(1,""):"";
+            if(sheetUser.equals(wantedUser)){
+                found=true;
+                if(!sheetPassword.equals(password))throw new Exception("Username found in Authorized Users, but password does not match.");
+                return;
+            }
+        }
+        throw new Exception("This user is not authorized. Authorized Users rows read: "+rows.length()+". Username match: NO.");
+    }
+
+    private String normalizeUsername(String value){
+        if(value==null)return "";
+        return value.replace("\uFEFF","").replace("\u200B","").trim().toLowerCase(Locale.ROOT);
     }
 
     private JSONArray listReports()throws Exception{
