@@ -180,7 +180,8 @@ public final class NotificationEngine {
                         ? NotificationCompat.PRIORITY_MAX : NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
                 .setCategory(NotificationCompat.CATEGORY_STATUS)
-                .setContentIntent(pending);
+                .setAutoCancel(true)
+                .setCategory(NotificationCompat.CATEGORY_STATUS);
 
         android.content.Intent tap = new android.content.Intent(context, MainActivity.class);
         tap.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
