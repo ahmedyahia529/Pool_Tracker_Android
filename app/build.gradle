@@ -8,12 +8,16 @@ android {
         applicationId 'com.ahmedyahia.ttspooltracker'
         minSdk 23
         targetSdk 35
-        versionCode 11
-        versionName '3.0'
+        versionCode 12
+        versionName '3.1'
     }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.15.0'
 }
