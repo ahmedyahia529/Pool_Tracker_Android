@@ -2,6 +2,10 @@ package com.ahmedyahia.ttspooltracker;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.KeyguardManager;
+import android.hardware.biometrics.BiometricPrompt;
+import android.os.CancellationSignal;
+import android.content.DialogInterface;
 import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -28,6 +32,12 @@ import java.net.URLEncoder;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
+import java.security.KeyStore;
+import java.security.SecureRandom;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 import java.security.PrivateKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
@@ -38,6 +48,12 @@ import java.util.concurrent.Executors;
 public class MainActivity extends Activity {
     private WebView webView;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private static final String BIO_PREFS = "tts_biometric";
+    private static final String BIO_USER = "user";
+    private static final String BIO_PASS = "pass";
+    private static final String BIO_IV = "iv";
+    private static final String BIO_COUNT = "count";
+    private static final String KEY_ALIAS = "tts_sentinel_bio_key";
 
     private static final String DRIVE_FOLDER_ID = "1UEV2NEAw4oilA2gN1oF8ixqnKD4gD8fm";
     private static final String SHEET_ID = "1XpQGUL0DNaK3mgCEecXtfoH2oMZS2qLEx_1rQqrW3QM";
@@ -81,7 +97,7 @@ public class MainActivity extends Activity {
         return true;
     }
 
-    private void startNativeLogin(final String username, final String password) {
+    private void startNativeLogin(final String username, final String password, final boolean saveForBiometric) {
         final String u = username == null ? "" : username.trim();
         final String p = password == null ? "" : password;
         Toast.makeText(this, "Login request received", Toast.LENGTH_SHORT).show();
@@ -90,6 +106,9 @@ public class MainActivity extends Activity {
         executor.execute(() -> {
             try {
                 authenticateUser(u, p);
+                if (saveForBiometric) {
+                    try { saveBiometricCredentials(u, p); } catch (Exception ignored) {}
+                }
                 JSONArray reports = listReports();
                 if (reports.length() == 0) throw new Exception("Login successful, but no reports were found in Google Drive.");
                 String date = reports.getJSONObject(0).optString("date", "");
@@ -100,6 +119,116 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> { Toast.makeText(MainActivity.this, msg, Toast.LENGTH_LONG).show(); loadHome(); });
             }
         });
+    }
+
+    private void startBiometricLogin() {
+        if (!hasBiometricCredentials()) {
+            Toast.makeText(this, "Please login once with username and password first.", Toast.LENGTH_LONG).show();
+            loadHome();
+            return;
+        }
+        int count = getSharedPreferences(BIO_PREFS, MODE_PRIVATE).getInt(BIO_COUNT, 0);
+        if (count >= 10) {
+            Toast.makeText(this, "For security, confirm your username and password again.", Toast.LENGTH_LONG).show();
+            loadHome();
+            return;
+        }
+        if (Build.VERSION.SDK_INT < 28) {
+            Toast.makeText(this, "Biometric unlock requires Android 9 or newer.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        final BiometricPrompt.AuthenticationCallback callback = new BiometricPrompt.AuthenticationCallback() {
+            @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
+                runOnUiThread(() -> finishBiometricLogin());
+            }
+            @Override public void onAuthenticationError(int errorCode, CharSequence errString) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Biometric unlock cancelled.", Toast.LENGTH_SHORT).show());
+            }
+        };
+        BiometricPrompt prompt = new BiometricPrompt.Builder(this)
+                .setTitle("TTS Sentinel")
+                .setSubtitle("Unlock Pool Tracker")
+                .setDescription("Use your fingerprint to securely unlock the dashboard.")
+                .setNegativeButton("Use password", getMainExecutor(), (dialog, which) -> loadHome())
+                .build();
+        prompt.authenticate(new CancellationSignal(), getMainExecutor(), callback);
+    }
+
+    private void finishBiometricLogin() {
+        try {
+            String user = decryptPreference(BIO_USER);
+            String pass = decryptPreference(BIO_PASS);
+            if (user.isEmpty() || pass.isEmpty()) throw new Exception("Saved credentials are unavailable.");
+            authenticateUser(user, pass);
+            int next = getSharedPreferences(BIO_PREFS, MODE_PRIVATE).getInt(BIO_COUNT, 0) + 1;
+            getSharedPreferences(BIO_PREFS, MODE_PRIVATE).edit().putInt(BIO_COUNT, next).apply();
+            JSONArray reports = listReports();
+            if (reports.length() == 0) throw new Exception("No reports were found in Google Drive.");
+            String date = reports.getJSONObject(0).optString("date", "");
+            String report = fetchReportByDate(date);
+            runOnUiThread(() -> {
+                Toast.makeText(MainActivity.this, "Fingerprint accepted • " + next + "/10", Toast.LENGTH_SHORT).show();
+                loadDashboardWithData(reports, date, report);
+            });
+        } catch (Exception e) {
+            runOnUiThread(() -> Toast.makeText(MainActivity.this, "Biometric login failed. Please use your password.", Toast.LENGTH_LONG).show());
+            loadHome();
+        }
+    }
+
+    private boolean hasBiometricCredentials() {
+        android.content.SharedPreferences p = getSharedPreferences(BIO_PREFS, MODE_PRIVATE);
+        return p.contains(BIO_USER) && p.contains(BIO_PASS) && p.contains(BIO_IV);
+    }
+
+    private void saveBiometricCredentials(String user, String pass) throws Exception {
+        encryptPreference(BIO_USER, user);
+        encryptPreference(BIO_PASS, pass);
+        getSharedPreferences(BIO_PREFS, MODE_PRIVATE).edit().putInt(BIO_COUNT, 0).apply();
+    }
+
+    private void ensureBioKey() throws Exception {
+        KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+        ks.load(null);
+        if (!ks.containsAlias(KEY_ALIAS)) {
+            KeyGenerator kg = KeyGenerator.getInstance("AES", "AndroidKeyStore");
+            kg.init(new android.security.keystore.KeyGenParameterSpec.Builder(
+                    KEY_ALIAS,
+                    android.security.keystore.KeyProperties.PURPOSE_ENCRYPT |
+                    android.security.keystore.KeyProperties.PURPOSE_DECRYPT)
+                    .setBlockModes(android.security.keystore.KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(android.security.keystore.KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setUserAuthenticationRequired(true)
+                    .build());
+            kg.generateKey();
+        }
+    }
+
+    private SecretKey getBioKey() throws Exception {
+        ensureBioKey();
+        KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+        ks.load(null);
+        return ((KeyStore.SecretKeyEntry) ks.getEntry(KEY_ALIAS, null)).getSecretKey();
+    }
+
+    private void encryptPreference(String key, String value) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, getBioKey());
+        byte[] encrypted = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
+        getSharedPreferences(BIO_PREFS, MODE_PRIVATE).edit()
+                .putString(key, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+                .putString(key + "_iv", Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP))
+                .putString(BIO_IV, "1").apply();
+    }
+
+    private String decryptPreference(String key) throws Exception {
+        android.content.SharedPreferences p = getSharedPreferences(BIO_PREFS, MODE_PRIVATE);
+        String enc = p.getString(key, "");
+        String iv = p.getString(key + "_iv", "");
+        if (enc.isEmpty() || iv.isEmpty()) throw new Exception("No saved credential");
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, getBioKey(), new GCMParameterSpec(128, Base64.decode(iv, Base64.DEFAULT)));
+        return new String(cipher.doFinal(Base64.decode(enc, Base64.DEFAULT)), StandardCharsets.UTF_8);
     }
 
     private void startNativeReportLoad(final String date) {
