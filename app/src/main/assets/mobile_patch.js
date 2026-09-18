@@ -46,7 +46,7 @@
       '.sentinel-alert-main{min-width:0;flex:1}.sentinel-alert-main b{display:block}.sentinel-alert-main span{display:block;color:#8ea0b8;font-size:10px;line-height:1.45;margin-top:3px}'+
       '.sentinel-alert-pill{font-size:9px;font-weight:900;padding:3px 6px;border-radius:99px;color:#8ea0b8;border:1px solid #ffffff1a;white-space:nowrap}'+
       '@media(max-width:600px){.sentinel-alert-grid{grid-template-columns:1fr}}';
-    document.head.appendChild(s);
+    s.textContent += '.panel,.card,.sentinel-alert{animation:sentinelIn .42s cubic-bezier(.2,.8,.2,1) both}.panel:nth-of-type(2n){animation-delay:.04s}.panel:nth-of-type(3n){animation-delay:.08s}.sentinel-alert:nth-child(2){animation-delay:.04s}.sentinel-alert:nth-child(3){animation-delay:.08s}.card:hover{transform:translateY(-2px);box-shadow:0 14px 34px #0005}.panel:hover{box-shadow:0 14px 36px #0004}.wrap:before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 15% 10%,#55c2ff10,transparent 32%),radial-gradient(circle at 85% 80%,#a78bfa0d,transparent 30%);animation:sentinelPulse 7s ease-in-out infinite alternate}@keyframes sentinelIn{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}@keyframes sentinelPulse{from{opacity:.45}to{opacity:1}}.sentinel-alert.critical{animation:sentinelIn .42s both, sentinelGlow 2.8s ease-in-out infinite alternate}@keyframes sentinelGlow{from{box-shadow:0 0 0 #ff667800}to{box-shadow:0 0 24px #ff66780d}}';document.head.appendChild(s);
   }
 
   function buildAlerts(d){
@@ -193,7 +193,7 @@
       wrappedRender.__androidPatched=true;
       window.render=wrappedRender;
     }
-    if(window.ANDROID_REPORT_DATA) setTimeout(function(){patchReport(window.ANDROID_REPORT_DATA)},100);
+    if(window.ANDROID_REPORT_DATA) setTimeout(function(){patchReport(window.ANDROID_REPORT_DATA); if(window.ANDROID_FOCUS_ALERT){var ps=document.querySelectorAll('.panel'); for(var i=0;i<ps.length;i++){if((ps[i].textContent||'').indexOf(window.ANDROID_FOCUS_ALERT.replace(/^\S+\s/,''))>=0){ps[i].scrollIntoView({behavior:'smooth',block:'center'});ps[i].style.outline='2px solid #55c2ff88';setTimeout(function(){ps[i].style.outline=''},1800);break;}}}},100);
   }
 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',hook);
