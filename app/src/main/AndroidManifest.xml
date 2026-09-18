@@ -11,12 +11,6 @@
         android:usesCleartextTraffic="false"
         android:allowBackup="false">
 
-        <provider
-            android:name=".SentinelInitProvider"
-            android:authorities="com.ahmedyahia.ttspooltracker.sentinel-init"
-            android:exported="false"
-            android:initOrder="100" />
-
         <activity
             android:name=".MainActivity"
             android:screenOrientation="portrait"
