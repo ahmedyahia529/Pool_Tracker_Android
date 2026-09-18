@@ -1,8 +1,11 @@
 package com.ahmedyahia.ttspooltracker;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
@@ -45,6 +48,13 @@ public class MainActivity extends Activity {
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        NotificationEngine.initialize(this);
+        SentinelWorker.schedule(this);
+        if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 4101);
+        }
+
         webView = new WebView(this);
         setContentView(webView);
         WebSettings s = webView.getSettings();
@@ -115,6 +125,7 @@ public class MainActivity extends Activity {
             html = html.replace("</body>", "<script>" + mobilePatch + "</script></body>");
             String baseUrl = "https://appassets.androidplatform.net/assets/dashboard.html";
             webView.loadDataWithBaseURL(baseUrl, html, "text/html", "UTF-8", baseUrl);
+            try { NotificationEngine.evaluate(this, new JSONObject(reportJson == null ? "{}" : reportJson), true); } catch (Exception ignored) {}
         } catch (Exception e) { Toast.makeText(this, "Unable to load dashboard: " + e.getMessage(), Toast.LENGTH_LONG).show(); }
     }
 
@@ -134,6 +145,16 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void getReportByDate(String date) { startNativeReportLoad(date); }
         @JavascriptInterface public void backHome() { runOnUiThread(MainActivity.this::loadHome); }
+        @JavascriptInterface public void notifyEvent(String title, String body, int level) {
+            JSONObject x = new JSONObject();
+            try {
+                x.put("session_date", "");
+                x.put("last_updated", String.valueOf(System.currentTimeMillis()));
+                x.put("mobile_event_title", title);
+                x.put("mobile_event_body", body);
+                NotificationEngine.evaluate(MainActivity.this, x, true);
+            } catch (Exception ignored) {}
+        }
     }
 
     private void authenticateUser(String username, String password) throws Exception {
