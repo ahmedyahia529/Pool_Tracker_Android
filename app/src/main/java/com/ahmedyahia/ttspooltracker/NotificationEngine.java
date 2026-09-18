@@ -80,14 +80,6 @@ public final class NotificationEngine {
         String stamp = report.optString("last_updated", "");
         if (stamp.isEmpty()) stamp = String.valueOf(System.currentTimeMillis());
 
-        int newTickets = current.optInt("new_ticket_count", totals.optInt("new_tickets_this_run", 0));
-        if (newTickets > 0) {
-            out.add(new Alert("ticket_" + day + "_" + stamp + "_" + newTickets,
-                    "🎫 New Tickets Detected",
-                    newTickets + " new ticket(s) were detected in the latest TTS run.",
-                    Alert.WARN));
-        }
-
         int nearViolation = current.optInt("near_violation", 0);
         if (nearViolation > 0) {
             out.add(new Alert("sla_" + day + "_" + stamp + "_" + nearViolation,
