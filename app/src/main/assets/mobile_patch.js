@@ -17,7 +17,7 @@
     return null;
   }
 
-  function ensurePanel(text){
+  function ensurePanel(text,top){
     var p=panelM(text);
     if(p) return p;
     var app=document.getElementById('app');
@@ -25,8 +25,79 @@
     p=document.createElement('section');
     p.className='panel';
     p.innerHTML='<h2>'+escM(text)+'</h2><div class="empty">No data available.</div>';
-    app.appendChild(p);
+    if(top && app.firstChild) app.insertBefore(p,app.firstChild);
+    else app.appendChild(p);
     return p;
+  }
+
+  function injectAlertStyle(){
+    if(document.getElementById('sentinel-alert-style')) return;
+    var s=document.createElement('style');
+    s.id='sentinel-alert-style';
+    s.textContent=
+      '.sentinel-alert-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}'+
+      '.sentinel-alert-count{min-width:28px;height:28px;padding:0 9px;border-radius:99px;display:inline-grid;place-items:center;background:#ff667822;border:1px solid #ff667866;color:#ff9aaa;font-weight:900}'+
+      '.sentinel-alert-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}'+
+      '.sentinel-alert{display:flex;gap:10px;align-items:flex-start;padding:11px 12px;border:1px solid #ffffff12;border-radius:12px;background:#0d1728}'+
+      '.sentinel-alert.critical{border-color:#ff667855;background:linear-gradient(145deg,#24131b,#111b2e)}'+
+      '.sentinel-alert.warn{border-color:#f6c45344}'+
+      '.sentinel-alert.info{border-color:#55c2ff44}'+
+      '.sentinel-alert-icon{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border-radius:9px;background:#ffffff08}'+
+      '.sentinel-alert-main{min-width:0;flex:1}.sentinel-alert-main b{display:block}.sentinel-alert-main span{display:block;color:#8ea0b8;font-size:10px;line-height:1.45;margin-top:3px}'+
+      '.sentinel-alert-pill{font-size:9px;font-weight:900;padding:3px 6px;border-radius:99px;color:#8ea0b8;border:1px solid #ffffff1a;white-space:nowrap}'+
+      '@media(max-width:600px){.sentinel-alert-grid{grid-template-columns:1fr}}';
+    document.head.appendChild(s);
+  }
+
+  function buildAlerts(d){
+    d=d||{};
+    var t=d.session_totals||{}, c=d.current||{}, day=d.session_date||'', stamp=d.last_updated||'';
+    var out=[];
+    var newTickets=Number(c.new_ticket_count||t.new_tickets_this_run||0);
+    if(newTickets>0) out.push({key:'ticket_'+day+'_'+stamp+'_'+newTickets,icon:'🎫',level:'warn',title:'New Tickets Detected',body:newTickets+' new ticket(s) in the latest TTS run.'});
+
+    var near=Number(c.near_violation||0);
+    if(near>0) out.push({key:'sla_'+day+'_'+stamp+'_'+near,icon:'⏱️',level:'critical',title:'SLA Alert',body:near+' ticket(s) reached the 1h30m near-violation threshold.'});
+
+    var high=t.high_group_tickets||c.high_group_tickets||[];
+    if(high.length){
+      var top=high[0]||{};
+      out.push({key:'high_'+day+'_'+stamp+'_'+high.length,icon:'🔥',level:'critical',title:'High GroupCount Activity',body:high.length+' ticket(s) reached GroupCount ≥ 5'+(top.ticket_id?' · Highest: '+top.ticket_id+' ('+Number(top.group_count||0)+')':'')+'.'});
+    }
+
+    var repeats=t.pool_repeated_cabinet_history||c.pool_repeated_cabinet_history||[];
+    if(repeats.length){
+      var last=repeats[repeats.length-1]||{}, rc=Number(last.count||0);
+      if(rc>=3) out.push({key:'repeat_'+day+'_'+stamp+'_'+(last.cabinet||'')+'_'+rc,icon:'🏢',level:'warn',title:'Repeated Cabinet in Pool',body:(last.cabinet||'A cabinet')+' appeared '+rc+' times in the TTS pool.'});
+    }
+
+    var intel=t.cabinet_intelligence||[];
+    intel.slice(0,5).forEach(function(x){
+      var tickets=Number(x.tickets||0),events=Number(x.escalations||0),risk=String(x.risk_level||'').toUpperCase();
+      if(tickets>=5||events>=5||risk==='HIGH'||risk==='CRITICAL'){
+        out.push({key:'cab_'+day+'_'+stamp+'_'+(x.cabinet||'')+'_'+tickets+'_'+events,icon:'🚨',level:'critical',title:'Cabinet Activity Spike',body:(x.cabinet||'-')+' · '+tickets+' ticket(s) · '+events+' event(s).'});
+      }
+    });
+
+    var repeatedCurrent=Number(c.repeated_cabinets||0);
+    if(repeatedCurrent>0) out.push({key:'current_repeat_'+day+'_'+stamp+'_'+repeatedCurrent,icon:'🔁',level:'warn',title:'Repeated Cabinets',body:repeatedCurrent+' cabinet(s) are currently repeated in the pool.'});
+
+    var iptv=Number(c.iptv_our_pool_count||t.iptv_our_pool_count||0);
+    if(iptv>0) out.push({key:'iptv_'+day+'_'+stamp+'_'+iptv,icon:'📺',level:'info',title:'IPTV Our Pool',body:iptv+' IPTV ticket(s) are currently in Our Pool.'});
+
+    return out;
+  }
+
+  function renderAlertCenter(d){
+    injectAlertStyle();
+    var p=ensurePanel('Sentinel Alerts',true);
+    if(!p) return;
+    var alerts=buildAlerts(d);
+    var critical=alerts.filter(function(x){return x.level==='critical'}).length;
+    p.innerHTML='<div class="sentinel-alert-head"><div><h2>🔔 Sentinel Alerts</h2><div class="sub">Live operational events detected from the selected report.</div></div><span class="sentinel-alert-count">'+nM(alerts.length)+'</span></div>'+
+      (alerts.length?'<div class="sentinel-alert-grid">'+alerts.map(function(a){
+        return '<div class="sentinel-alert '+escM(a.level)+'"><div class="sentinel-alert-icon">'+a.icon+'</div><div class="sentinel-alert-main"><b>'+escM(a.title)+'</b><span>'+escM(a.body)+'</span></div><span class="sentinel-alert-pill">'+escM(a.level==='critical'?'CRITICAL':a.level==='warn'?'ATTENTION':'INFO')+'</span></div>';
+      }).join('')+'</div>':'<div class="empty">🟢 No active alerts. Sentinel is quiet.</div>');
   }
 
   function patchReport(d){
@@ -34,6 +105,8 @@
       d=d||{};
       var t=d.session_totals||{};
       var c=d.current||{};
+
+      renderAlertCenter(d);
 
       var p=ensurePanel('Cabinet Intelligence');
       if(p){
