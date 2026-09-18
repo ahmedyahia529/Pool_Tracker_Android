@@ -53,7 +53,7 @@ public class MainActivity extends Activity {
     private static final String BIO_PASS = "pass";
     private static final String BIO_IV = "iv";
     private static final String BIO_COUNT = "count";
-    private static final String KEY_ALIAS = "tts_sentinel_bio_key";
+    private static final String KEY_ALIAS = "tts_sentinel_bio_key_v2";
 
     private static final String DRIVE_FOLDER_ID = "1UEV2NEAw4oilA2gN1oF8ixqnKD4gD8fm";
     private static final String SHEET_ID = "1XpQGUL0DNaK3mgCEecXtfoH2oMZS2qLEx_1rQqrW3QM";
@@ -198,7 +198,7 @@ public class MainActivity extends Activity {
                     android.security.keystore.KeyProperties.PURPOSE_DECRYPT)
                     .setBlockModes(android.security.keystore.KeyProperties.BLOCK_MODE_GCM)
                     .setEncryptionPaddings(android.security.keystore.KeyProperties.ENCRYPTION_PADDING_NONE)
-                    .setUserAuthenticationRequired(true)
+                    .setUserAuthenticationRequired(false)
                     .build());
             kg.generateKey();
         }
