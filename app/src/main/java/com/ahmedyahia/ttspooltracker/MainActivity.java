@@ -65,7 +65,14 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         NotificationEngine.initialize(this);
-        SentinelWorker.schedule(this);
+        // WorkManager is initialized by its own AndroidX provider. Keep scheduling
+        // defensive so a background-monitor initialization problem can never crash
+        // the foreground dashboard.
+        try {
+            SentinelWorker.schedule(this);
+        } catch (Exception ignored) {
+            // Dashboard remains usable even if background scheduling is unavailable.
+        }
         if (Build.VERSION.SDK_INT >= 33 &&
                 checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 4101);
