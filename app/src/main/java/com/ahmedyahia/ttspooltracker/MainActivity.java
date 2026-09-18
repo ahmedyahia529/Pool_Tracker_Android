@@ -275,6 +275,7 @@ public class MainActivity extends Activity {
     public class AndroidBridge {
         @JavascriptInterface public void ping() { Toast.makeText(MainActivity.this, "Android bridge connected", Toast.LENGTH_SHORT).show(); }
         @JavascriptInterface public void login(String username, String password) { startNativeLogin(username, password, true); }
+        @JavascriptInterface public void biometricLogin() { startBiometricLogin(); }
         @JavascriptInterface public void getLatestReport() {
             executor.execute(() -> { try { JSONArray reports = listReports(); if (reports.length() == 0) throw new Exception("No daily reports found on Google Drive."); String date = reports.getJSONObject(0).getString("date"); String report = fetchReportByDate(date); runOnUiThread(() -> loadDashboardWithData(reports, date, report)); }
             catch (Exception e) { runOnUiThread(() -> Toast.makeText(MainActivity.this, e.getMessage(), Toast.LENGTH_LONG).show()); } });
