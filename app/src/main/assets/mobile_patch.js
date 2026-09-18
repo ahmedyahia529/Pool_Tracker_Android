@@ -193,7 +193,7 @@
       wrappedRender.__androidPatched=true;
       window.render=wrappedRender;
     }
-    if(window.ANDROID_REPORT_DATA) setTimeout(function(){patchReport(window.ANDROID_REPORT_DATA); if(window.ANDROID_FOCUS_ALERT){var ps=document.querySelectorAll('.panel'); for(var i=0;i<ps.length;i++){if((ps[i].textContent||'').indexOf(window.ANDROID_FOCUS_ALERT.replace(/^\S+\s/,''))>=0){ps[i].scrollIntoView({behavior:'smooth',block:'center'});ps[i].style.outline='2px solid #55c2ff88';setTimeout(function(){ps[i].style.outline=''},1800);break;}}}},100);
+    if(window.ANDROID_REPORT_DATA) setTimeout(function(){patchReport(window.ANDROID_REPORT_DATA); if(window.ANDROID_FOCUS_ALERT){var ps=document.querySelectorAll('.panel'); for(var i=0;i<ps.length;i++){if((ps[i].textContent||'').indexOf(window.ANDROID_FOCUS_ALERT.replace(/^\S+\s/,''))>=0){var target=ps[i];target.scrollIntoView({behavior:'smooth',block:'center'});target.style.outline='2px solid #55c2ff88';setTimeout(function(){target.style.outline=''},1800);break;}}}},100);
   }
 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',hook);
