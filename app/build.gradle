@@ -1,6 +1,7 @@
 plugins { id 'com.android.application' }
 
 android {
+    // AndroidX is enabled via gradle.properties in CI/build environments.
     namespace 'com.ahmedyahia.ttspooltracker'
     compileSdk 35
 
