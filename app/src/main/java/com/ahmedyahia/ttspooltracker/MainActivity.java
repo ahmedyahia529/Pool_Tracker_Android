@@ -92,7 +92,7 @@ public class MainActivity extends Activity {
     private boolean handleAppUrl(Uri uri) {
         if (uri == null || !"https".equalsIgnoreCase(uri.getScheme()) || !"tts.local".equalsIgnoreCase(uri.getHost())) return false;
         String path = uri.getPath();
-        if ("/login".equals(path)) { startNativeLogin(uri.getQueryParameter("username"), uri.getQueryParameter("password")); return true; }
+        if ("/login".equals(path)) { startNativeLogin(uri.getQueryParameter("username"), uri.getQueryParameter("password"), true); return true; }
         if ("/report".equals(path)) { String date = uri.getQueryParameter("date"); if (date != null) startNativeReportLoad(date); return true; }
         return true;
     }
