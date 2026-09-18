@@ -171,10 +171,7 @@ public final class NotificationEngine {
             return;
         }
 
-        IntentFactory.openDashboard(context);
-        PendingIntent pending = IntentFactory.dashboardPendingIntent(context);
-
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
                 .setContentTitle(alert.title)
                 .setContentText(alert.body)
@@ -185,6 +182,12 @@ public final class NotificationEngine {
                 .setCategory(NotificationCompat.CATEGORY_STATUS)
                 .setContentIntent(pending);
 
+        android.content.Intent tap = new android.content.Intent(context, MainActivity.class);
+        tap.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        tap.putExtra("sentinel_alert", alert.title);
+        PendingIntent focusedPending = PendingIntent.getActivity(context, alert.key.hashCode(), tap,
+                PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+        builder.setContentIntent(focusedPending);
         NotificationManagerCompat.from(context).notify(alert.key.hashCode(), builder.build());
     }
 
@@ -194,8 +197,9 @@ public final class NotificationEngine {
         public static final int CRITICAL = 3;
         public final String key, title, body;
         public final int level;
+        public final String focus;
         Alert(String key, String title, String body, int level) {
-            this.key = key; this.title = title; this.body = body; this.level = level;
+            this.key = key; this.title = title; this.body = body; this.level = level; this.focus = "";
         }
     }
 
